@@ -341,6 +341,15 @@ jasmine_node_test(
     ],
 )
 
+jasmine_node_test(
+    name = "patches_test",
+    srcs = ["patches.spec.js"],
+    data = [
+        "dir_output",
+        "minified.js",
+    ],
+)
+
 [nodejs_toolchain_test(
     name = "nodejs_toolchain_%s_test" % platform,
     platform = platform,
