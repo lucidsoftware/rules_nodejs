@@ -357,6 +357,7 @@ fi
             runfiles = ctx.runfiles(
                 transitive_files = depset(runfiles),
                 files = node_tool_files + [
+                            ctx.version_file,
                             ctx.outputs.loader_script,
                             ctx.outputs.require_patch_script,
                         ] + ctx.files._source_map_support_files +
