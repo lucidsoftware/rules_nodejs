@@ -24,6 +24,10 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
 
+if [[ ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  export RUNFILES_MANIFEST_FILE=
+fi
+
 # --- begin RUNFILES initialization ---
 # Find our runfiles as ${PWD}/${RUNFILES_DIR} is not always correct.
 # We need this to launch node with the correct entry point.
@@ -439,7 +443,7 @@ if [ "${EXPECTED_EXIT_CODE}" != "0" ]; then
       readonly BAZEL_EXIT_TESTS_FAILED=3;
       exit ${BAZEL_EXIT_TESTS_FAILED}
     fi
-  else 
+  else
     exit 0
   fi
 fi
