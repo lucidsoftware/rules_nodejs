@@ -814,6 +814,13 @@ def _yarn_install_impl(repository_ctx):
     node = repository_ctx.path(get_node_label(repository_ctx))
     yarn = get_yarn_label(repository_ctx)
 
+    # Have to explicitly watch files for changes starting in Bazel 8
+    if hasattr(repository_ctx, "watch"):
+        repository_ctx.watch(repository_ctx.attr.yarn_lock)
+        repository_ctx.watch(repository_ctx.attr.package_json)
+        for f in repository_ctx.attr.data:
+            repository_ctx.watch(f)
+
     yarn_args = []
 
     # Set frozen lockfile as default install to install the exact version from the yarn.lock
