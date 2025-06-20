@@ -415,10 +415,33 @@ async function findScopes() {
         .filter((f) => typeof f === 'string');
     return scopes;
 }
+async function readPackageJsonWithRetry(packageJsonPath, maxRetries) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        let content = "";
+        try {
+            content = await fs_1.promises.readFile(packageJsonPath, { encoding: 'utf8' });
+            return JSON.parse(stripBom(content));
+        }
+        catch (error) {
+            if (error instanceof SyntaxError && attempt < maxRetries) {
+                const delay = (attempt + 1) * 50;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+            let errorString = `Error reading package.json file. Path ${packageJsonPath}. package.json file content: ${content}.`;
+            if (error instanceof Error) {
+                throw Error(errorString + ` Caused by: ${error.stack}`);
+            }
+            else {
+                throw Error(errorString + `Unknown cause: ${error}.`);
+            }
+        }
+    }
+}
 async function parsePackage(p, dependencies = new Set()) {
     const packageJson = path.posix.join(p, 'package.json');
     const pkg = (await isFile(packageJson)) ?
-        JSON.parse(stripBom(await fs_1.promises.readFile(packageJson, { encoding: 'utf8' }))) :
+        await readPackageJsonWithRetry(packageJson, 5) :
         { version: '0.0.0' };
     pkg._dir = p.substring('node_modules/'.length);
     pkg._name = pkg._dir.split('/').pop();

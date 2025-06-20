@@ -655,6 +655,31 @@ async function findScopes() {
   return scopes;
 }
 
+async function readPackageJsonWithRetry(packageJsonPath: string, maxRetries: number): Promise<any> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let content = ""
+    try {
+      content = await fs.readFile(packageJsonPath, {encoding: 'utf8'});
+      return JSON.parse(stripBom(content));
+    } catch (error: any) {
+      if (error instanceof SyntaxError && attempt < maxRetries) {
+        // Retry after delay in case it was a JSON parse error due to a partial file
+        const delay = (attempt + 1) * 50;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      let errorString = `Error reading package.json file. Path ${packageJsonPath}. package.json file content: ${content}.`
+
+      // Re-throw on final attempt or non-syntax errors
+      if (error instanceof Error) {
+        throw Error(errorString + ` Caused by: ${error.stack}`)
+      } else {
+        throw Error(errorString + `Unknown cause: ${error}.`)
+      }
+    }
+  }
+}
+
 /**
  * Given the name of a top-level folder in node_modules, parse the
  * package json and return it as an object along with
@@ -664,7 +689,7 @@ export async function parsePackage(p: string, dependencies: Set<string> = new Se
   // Parse the package.json file of this package
   const packageJson = path.posix.join(p, 'package.json');
   const pkg = (await isFile(packageJson)) ?
-      JSON.parse(stripBom(await fs.readFile(packageJson, {encoding: 'utf8'}))) :
+      await readPackageJsonWithRetry(packageJson, 5) :
       {version: '0.0.0'};
 
   // Trim the leading node_modules from the path and
