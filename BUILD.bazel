@@ -104,7 +104,6 @@ pkg_npm(
         "//third_party/github.com/bazelbuild/bazel/tools/bash/runfiles:package_contents",
         "//third_party/github.com/buffer-from:package_contents",
         "//third_party/github.com/gjtorikian/isBinaryFile:package_contents",
-        "//third_party/github.com/juanjoDiaz/removeNPMAbsolutePaths:package_contents",
         "//third_party/github.com/source-map:package_contents",
         "//third_party/github.com/source-map-support:package_contents",
         "//third_party/npm/node_modules/@babel/core:package_contents",
