@@ -1,11 +1,32 @@
 // this does not actually patch child_process
 // but adds support to ensure the registered loader is included in all nested executions of nodejs.
+const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 export const patcher = (requireScriptName: string, nodeDir?: string) => {
   requireScriptName = path.resolve(requireScriptName);
-  nodeDir = nodeDir || path.join(path.dirname(requireScriptName), '_node_bin');
+  if (!nodeDir) {
+    // Write to a temporary directory so we don't write to runfiles, which are often read-only in a
+    // remote execution environment
+    const hash = crypto.createHash('sha1').update(requireScriptName).digest('hex').substring(0, 8);
+
+    nodeDir = path.join(os.tmpdir(), `_node_bin_${hash}`);
+
+    function cleanUpTemporaryDirectory() {
+      fs.rmSync(nodeDir, {
+        recursive: true
+      });
+    }
+
+    process.on('exit', cleanUpTemporaryDirectory);
+    process.on('SIGINT', cleanUpTemporaryDirectory);
+    process.on('SIGTERM', cleanUpTemporaryDirectory);
+    process.on('SIGUSR1', cleanUpTemporaryDirectory);
+    process.on('SIGUSR2', cleanUpTemporaryDirectory);
+    process.on('uncaughtException', cleanUpTemporaryDirectory);
+  }
   const file = path.basename(requireScriptName);
 
   try {

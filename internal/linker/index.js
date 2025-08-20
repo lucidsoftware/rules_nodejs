@@ -10,10 +10,35 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.main = exports.reduceModules = void 0;
+const crypto = require("crypto");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { runfiles: _defaultRunfiles, _BAZEL_OUT_REGEX } = require('../runfiles/index.js');
 const VERBOSE_LOGS = !!process.env['VERBOSE_LOGS'];
+const createdTemporaryDirectories = new Set();
+function getWriteableRunfilesDirectory(runfilesPath) {
+    const hash = crypto.createHash('sha1').update(runfilesPath).digest('hex').substring(0, 8);
+    const temporaryDirectory = path.join(os.tmpdir(), `runfiles_${hash}`);
+    createdTemporaryDirectories.add(temporaryDirectory);
+    return temporaryDirectory;
+}
+function deleteTemporaryDirectoriesOnExit() {
+    function handler() {
+        for (const path of createdTemporaryDirectories) {
+            fs.rmSync(path, {
+                recursive: true,
+            });
+        }
+        createdTemporaryDirectories.clear();
+    }
+    process.on('exit', handler);
+    process.on('SIGINT', handler);
+    process.on('SIGTERM', handler);
+    process.on('SIGUSR1', handler);
+    process.on('SIGUSR2', handler);
+    process.on('uncaughtException', handler);
+}
 function log_verbose(...m) {
     if (VERBOSE_LOGS)
         console.error('[link_node_modules.js]', ...m);
@@ -350,12 +375,22 @@ function main(args, runfiles) {
             if (process.env['RUNFILES']) {
                 const stat = yield gracefulLstat(process.env['RUNFILES']);
                 if (stat && stat.isDirectory()) {
-                    const runfilesPackagePath = path.posix.join(process.env['RUNFILES'], workspace, packagePath);
+                    const temporaryDirectory = getWriteableRunfilesDirectory(process.env['RUNFILES']);
+                    const runfilesPackagePath = path.posix.join(temporaryDirectory, workspace, packagePath);
                     yield mkdirp(`${runfilesPackagePath}`);
                     yield symlinkWithUnlink(!packagePath && workspaceNodeModules ? workspaceNodeModules : execrootNodeModules, `${runfilesPackagePath}/node_modules`);
+                    const nodeModulesPath = `${runfilesPackagePath}/node_modules`;
+                    if (process.env.NODE_PATH == undefined) {
+                        process.env.NODE_PATH = nodeModulesPath;
+                    }
+                    else {
+                        process.env.NODE_PATH = `${process.env.NODE_PATH}:${nodeModulesPath}${path.delimiter}`;
+                    }
+                    log_verbose(`Added \`${nodeModulesPath}\` to \`NODE_PATH\`.`);
                 }
             }
         }
+        deleteTemporaryDirectoriesOnExit();
         function isLeftoverDirectoryFromLinker(stats, modulePath) {
             return __awaiter(this, void 0, void 0, function* () {
                 if (runfiles.manifest === undefined) {

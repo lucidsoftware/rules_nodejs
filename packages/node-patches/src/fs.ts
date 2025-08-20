@@ -267,7 +267,7 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
   // tslint:disable-next-line:no-any
   fs.readdirSync = (...args: any[]) => {
     const res = origReaddirSync(...args);
-    const p = path.resolve(args[0]);
+    const p = path.resolve(args[0].toString());
     // tslint:disable-next-line:no-any
     res.forEach((v: Dirent|any) => {
       handleDirentSync(p, v);
