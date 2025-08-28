@@ -674,6 +674,13 @@ def _npm_install_impl(repository_ctx):
     node = repository_ctx.path(get_node_label(repository_ctx))
     npm = get_npm_label(repository_ctx)
 
+    # Have to explicitly watch files for changes starting in Bazel 8
+    if hasattr(repository_ctx, "watch"):
+        repository_ctx.watch(repository_ctx.attr.package_lock_json)
+        repository_ctx.watch(repository_ctx.attr.package_json)
+        for f in repository_ctx.attr.data:
+            repository_ctx.watch(f)
+
     # Set the base command (install or ci)
     npm_args = [repository_ctx.attr.npm_command]
 
