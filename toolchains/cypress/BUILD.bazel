@@ -36,24 +36,14 @@ toolchain_type(name = "toolchain_type")
 # This way they can reference the cypress_PATH make variable.
 alias(
     name = "toolchain",
-    actual = select({
-        "@bazel_tools//src/conditions:darwin": ":cypress_darwin_toolchain_config",
-        "@bazel_tools//src/conditions:linux_x86_64": ":cypress_linux_toolchain_config",
-        "@bazel_tools//src/conditions:windows": ":cypress_windows_toolchain_config",
-        "//conditions:default": ":cypress_linux_toolchain_config",
-    }),
+    actual = ":cypress_linux_toolchain_config",
     visibility = ["//visibility:public"],
 )
 
 # Allow targets to declare a dependency on the cypress binary for the current host platform
 alias(
     name = "cypress_bin",
-    actual = select({
-        "@bazel_tools//src/conditions:darwin": "@cypress_darwin//:bin",
-        "@bazel_tools//src/conditions:linux_x86_64": "@cypress_linux//:bin",
-        "@bazel_tools//src/conditions:windows": "@cypress_windows//:bin",
-        "//conditions:default": "@cypress_linux//:bin",
-    }),
+    actual = "@cypress_linux//:bin",
     visibility = ["//visibility:public"],
 )
 

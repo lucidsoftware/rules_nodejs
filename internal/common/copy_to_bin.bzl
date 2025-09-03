@@ -57,9 +57,6 @@ def copy_to_bin(name, srcs, **kwargs):
     _copy_to_bin(
         name = name,
         srcs = srcs,
-        is_windows = select({
-            "@bazel_tools//src/conditions:host_windows": True,
-            "//conditions:default": False,
-        }),
+        is_windows = False,
         **kwargs
     )

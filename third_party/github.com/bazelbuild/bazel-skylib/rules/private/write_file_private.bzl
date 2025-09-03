@@ -94,10 +94,7 @@ def write_file(
             content = content,
             out = out,
             newline = newline or "auto",
-            is_windows = select({
-                "@bazel_tools//src/conditions:host_windows": True,
-                "//conditions:default": False,
-            }),
+            is_windows = False,
             **kwargs
         )
     else:
@@ -106,9 +103,6 @@ def write_file(
             content = content,
             out = out,
             newline = newline or "auto",
-            is_windows = select({
-                "@bazel_tools//src/conditions:host_windows": True,
-                "//conditions:default": False,
-            }),
+            is_windows = False,
             **kwargs
         )
