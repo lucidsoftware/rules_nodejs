@@ -4,16 +4,12 @@
 var path = require('path');
 var util = require('util');
 var fs$1 = require('fs');
-var crypto = require('crypto');
-var os = require('os');
 
 function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
 var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
 var util__default = /*#__PURE__*/_interopDefaultLegacy(util);
 var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs$1);
-var crypto__default = /*#__PURE__*/_interopDefaultLegacy(crypto);
-var os__default = /*#__PURE__*/_interopDefaultLegacy(os);
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -544,37 +540,34 @@ exports.patcher = void 0;
 // but adds support to ensure the registered loader is included in all nested executions of nodejs.
 
 
-
-
 const patcher = (requireScriptName, nodeDir) => {
     requireScriptName = path__default['default'].resolve(requireScriptName);
-    if (!nodeDir) {
+    if (nodeDir) {
+        try {
+            fs__default['default'].mkdirSync(nodeDir, { recursive: true });
+        }
+        catch (e) {
+            // with node versions that don't have recursive mkdir this may throw an error.
+            if (e.code !== 'EEXIST') {
+                throw e;
+            }
+        }
+    }
+    else {
         // Write to a temporary directory so we don't write to runfiles, which are often read-only in a
         // remote execution environment
-        const hash = crypto__default['default'].createHash('sha1').update(requireScriptName).digest('hex').substring(0, 8);
-        nodeDir = path__default['default'].join(os__default['default'].tmpdir(), `_node_bin_${hash}`);
-        function cleanUpTemporaryDirectory() {
+        nodeDir = fs__default['default'].mkdtempSync("_node_bin_");
+        function exitHandler() {
             fs__default['default'].rmSync(nodeDir, {
                 recursive: true
             });
         }
-        process.on('exit', cleanUpTemporaryDirectory);
-        process.on('SIGINT', cleanUpTemporaryDirectory);
-        process.on('SIGTERM', cleanUpTemporaryDirectory);
-        process.on('SIGUSR1', cleanUpTemporaryDirectory);
-        process.on('SIGUSR2', cleanUpTemporaryDirectory);
-        process.on('uncaughtException', cleanUpTemporaryDirectory);
+        process.on('exit', exitHandler);
+        // Calling `process.exit` will cause the `exit` event to be fired
+        process.on('SIGINT', () => process.exit(130));
+        process.on('SIGTERM', () => process.exit(143));
     }
     const file = path__default['default'].basename(requireScriptName);
-    try {
-        fs__default['default'].mkdirSync(nodeDir, { recursive: true });
-    }
-    catch (e) {
-        // with node versions that don't have recursive mkdir this may throw an error.
-        if (e.code !== 'EEXIST') {
-            throw e;
-        }
-    }
     if (process.platform == 'win32') {
         const nodeEntry = path__default['default'].join(nodeDir, 'node.bat');
         if (!fs__default['default'].existsSync(nodeEntry)) {

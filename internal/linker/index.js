@@ -10,34 +10,28 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.main = exports.reduceModules = void 0;
-const crypto = require("crypto");
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 const { runfiles: _defaultRunfiles, _BAZEL_OUT_REGEX } = require('../runfiles/index.js');
 const VERBOSE_LOGS = !!process.env['VERBOSE_LOGS'];
 const createdTemporaryDirectories = new Set();
 function getWriteableRunfilesDirectory(runfilesPath) {
-    const hash = crypto.createHash('sha1').update(runfilesPath).digest('hex').substring(0, 8);
-    const temporaryDirectory = path.join(os.tmpdir(), `runfiles_${hash}`);
+    const temporaryDirectory = fs.mkdtempSync("runfiles_");
     createdTemporaryDirectories.add(temporaryDirectory);
     return temporaryDirectory;
 }
 function deleteTemporaryDirectoriesOnExit() {
-    function handler() {
-        for (const path of createdTemporaryDirectories) {
+    function exitHandler() {
+        createdTemporaryDirectories.forEach((path) => {
             fs.rmSync(path, {
                 recursive: true,
             });
-        }
+        });
         createdTemporaryDirectories.clear();
     }
-    process.on('exit', handler);
-    process.on('SIGINT', handler);
-    process.on('SIGTERM', handler);
-    process.on('SIGUSR1', handler);
-    process.on('SIGUSR2', handler);
-    process.on('uncaughtException', handler);
+    process.on('exit', exitHandler);
+    process.on('SIGINT', () => process.exit(130));
+    process.on('SIGTERM', () => process.exit(143));
 }
 function log_verbose(...m) {
     if (VERBOSE_LOGS)
