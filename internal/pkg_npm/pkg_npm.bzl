@@ -120,7 +120,7 @@ If package_path is not set the this will be the root node_modules of the workspa
     ),
     "substitutions": attr.string_dict(
         doc = """Key-value pairs which are replaced in all the files while building the package.
-        
+
 You can use values from the workspace status command using curly braces, for example
 `{"0.0.0-PLACEHOLDER": "{STABLE_GIT_VERSION}"}`.
 
@@ -379,18 +379,12 @@ def pkg_npm_macro(name, tgz = None, **kwargs):
 
     native.alias(
         name = name + ".pack",
-        actual = select({
-            "@bazel_tools//src/conditions:host_windows": name + ".pack.bat",
-            "//conditions:default": name + ".pack.sh",
-        }),
+        actual = name + ".pack.sh",
     )
 
     native.alias(
         name = name + ".publish",
-        actual = select({
-            "@bazel_tools//src/conditions:host_windows": name + ".publish.bat",
-            "//conditions:default": name + ".publish.sh",
-        }),
+        actual = name + ".publish.sh",
     )
 
     if tgz != None:
