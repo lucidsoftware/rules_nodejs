@@ -2,12 +2,14 @@
 'use strict';
 
 var path = require('path');
+var url_1 = require('url');
 var util = require('util');
 var fs$1 = require('fs');
 
 function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
 var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
+var url_1__default = /*#__PURE__*/_interopDefaultLegacy(url_1);
 var util__default = /*#__PURE__*/_interopDefaultLegacy(util);
 var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs$1);
 
@@ -58,6 +60,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.escapeFunction = exports.isOutPath = exports.patcher = void 0;
 
 
+
+function stringifyPath(path) {
+    if (path instanceof url_1__default['default'].URL) {
+        return path.toString().replace('file://', '');
+    }
+    return path.toString();
+}
 // using require here on purpose so we can override methods with any
 // also even though imports are mutable in typescript the cognitive dissonance is too high because
 // es modules
@@ -95,7 +104,6 @@ const patcher = (fs = fs__default['default'], roots) => {
             args[args.length - 1] = (err, stats) => {
                 if (err)
                     return cb(err);
-                path__default['default'].resolve(args[0]);
                 if (!stats.isSymbolicLink()) {
                     return cb(null, stats);
                 }
@@ -116,7 +124,8 @@ const patcher = (fs = fs__default['default'], roots) => {
                             return cb(err);
                         }
                     }
-                    str = path__default['default'].resolve(path__default['default'].dirname(args[0]), str);
+                    const pathString = stringifyPath(args[0]);
+                    str = path__default['default'].resolve(path__default['default'].dirname(pathString), str);
                     if (isEscape(str, args[0])) {
                         // if it's an out link we have to return the original stat.
                         return origStat(args[0], (err, plainStat) => {
@@ -142,8 +151,9 @@ const patcher = (fs = fs__default['default'], roots) => {
             args[args.length - 1] = (err, str) => {
                 if (err)
                     return cb(err);
-                if (isEscape(str, args[0])) {
-                    cb(null, path__default['default'].resolve(args[0]));
+                const pathString = stringifyPath(args[0]);
+                if (isEscape(str, pathString)) {
+                    cb(null, path__default['default'].resolve(pathString));
                 }
                 else {
                     cb(null, str);
@@ -160,8 +170,9 @@ const patcher = (fs = fs__default['default'], roots) => {
                 args[args.length - 1] = (err, str) => {
                     if (err)
                         return cb(err);
-                    if (isEscape(str, args[0])) {
-                        cb(null, path__default['default'].resolve(args[0]));
+                    const pathString = stringifyPath(args[0]);
+                    if (isEscape(str, pathString)) {
+                        cb(null, path__default['default'].resolve(pathString));
                     }
                     else {
                         cb(null, str);
@@ -176,7 +187,8 @@ const patcher = (fs = fs__default['default'], roots) => {
         if (cb) {
             cb = once(cb);
             args[args.length - 1] = (err, str) => {
-                args[0] = path__default['default'].resolve(args[0]);
+                const pathString = stringifyPath(args[0]);
+                args[0] = path__default['default'].resolve(pathString);
                 if (str)
                     str = path__default['default'].resolve(path__default['default'].dirname(args[0]), str);
                 if (err)
@@ -196,13 +208,14 @@ const patcher = (fs = fs__default['default'], roots) => {
     // tslint:disable-next-line:no-any
     fs.lstatSync = (...args) => {
         const stats = origLstatSync(...args);
-        const linkPath = path__default['default'].resolve(args[0]);
+        const pathString = stringifyPath(args[0]);
+        const linkPath = path__default['default'].resolve(pathString);
         if (!stats.isSymbolicLink()) {
             return stats;
         }
         let linkTarget;
         try {
-            linkTarget = path__default['default'].resolve(path__default['default'].dirname(args[0]), origReadlinkSync(linkPath));
+            linkTarget = path__default['default'].resolve(path__default['default'].dirname(pathString), origReadlinkSync(linkPath));
         }
         catch (e) {
             if (e.code === 'ENOENT') {
@@ -227,22 +240,25 @@ const patcher = (fs = fs__default['default'], roots) => {
     // tslint:disable-next-line:no-any
     fs.realpathSync = (...args) => {
         const str = origRealpathSync(...args);
-        if (isEscape(str, args[0])) {
-            return path__default['default'].resolve(args[0]);
+        const pathString = stringifyPath(args[0]);
+        if (isEscape(str, pathString)) {
+            return path__default['default'].resolve(pathString);
         }
         return str;
     };
     // tslint:disable-next-line:no-any
     fs.realpathSync.native = (...args) => {
         const str = origRealpathSyncNative(...args);
-        if (isEscape(str, args[0])) {
-            return path__default['default'].resolve(args[0]);
+        const pathString = stringifyPath(args[0]);
+        if (isEscape(str, pathString)) {
+            return path__default['default'].resolve(pathString);
         }
         return str;
     };
     // tslint:disable-next-line:no-any
     fs.readlinkSync = (...args) => {
-        args[0] = path__default['default'].resolve(args[0]);
+        const pathString = stringifyPath(args[0]);
+        args[0] = path__default['default'].resolve(pathString);
         const str = path__default['default'].resolve(path__default['default'].dirname(args[0]), origReadlinkSync(...args));
         if (isEscape(str, args[0]) || str === args[0]) {
             const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
@@ -254,7 +270,8 @@ const patcher = (fs = fs__default['default'], roots) => {
     };
     // tslint:disable-next-line:no-any
     fs.readdir = (...args) => {
-        const p = path__default['default'].resolve(args[0]);
+        const pathString = stringifyPath(args[0]);
+        const p = path__default['default'].resolve(pathString);
         let cb = args[args.length - 1];
         if (typeof cb !== 'function') {
             // this will likely throw callback required error.
@@ -284,7 +301,8 @@ const patcher = (fs = fs__default['default'], roots) => {
     // tslint:disable-next-line:no-any
     fs.readdirSync = (...args) => {
         const res = origReaddirSync(...args);
-        const p = path__default['default'].resolve(args[0].toString());
+        const pathString = stringifyPath(args[0]);
+        const p = path__default['default'].resolve(pathString);
         // tslint:disable-next-line:no-any
         res.forEach((v) => {
             handleDirentSync(p, v);

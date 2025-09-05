@@ -17,11 +17,20 @@
 
 import {Stats} from 'fs';
 import * as path from 'path';
+import { URL } from 'url';
 import * as util from 'util';
 
 // windows cant find the right types
 type Dir = any;
 type Dirent = any;
+
+function stringifyPath(path: unknown): string {
+  if (path instanceof URL) {
+    return path.toString().replace('file://', '');
+  }
+
+  return path.toString();
+}
 
 // using require here on purpose so we can override methods with any
 // also even though imports are mutable in typescript the cognitive dissonance is too high because
@@ -71,7 +80,6 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
       args[args.length - 1] = (err: Error, stats: Stats) => {
         if (err) return cb(err);
 
-        const linkPath = path.resolve(args[0]);
         if (!stats.isSymbolicLink()) {
           return cb(null, stats);
         }
@@ -92,7 +100,9 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
             }
           }
 
-          str = path.resolve(path.dirname(args[0]), str);
+          const pathString = stringifyPath(args[0]);
+
+          str = path.resolve(path.dirname(pathString), str);
 
           if (isEscape(str, args[0])) {
             // if it's an out link we have to return the original stat.
@@ -119,8 +129,11 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
       cb = once(cb);
       args[args.length - 1] = (err: Error, str: string) => {
         if (err) return cb(err);
-        if (isEscape(str, args[0])) {
-          cb(null, path.resolve(args[0]));
+
+        const pathString = stringifyPath(args[0]);
+
+        if (isEscape(str, pathString)) {
+          cb(null, path.resolve(pathString));
         } else {
           cb(null, str);
         }
@@ -136,8 +149,11 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
           cb = once(cb);
           args[args.length - 1] = (err: Error, str: string) => {
             if (err) return cb(err);
-            if (isEscape(str, args[0])) {
-              cb(null, path.resolve(args[0]));
+
+            const pathString = stringifyPath(args[0]);
+
+            if (isEscape(str, pathString)) {
+              cb(null, path.resolve(pathString));
             } else {
               cb(null, str);
             }
@@ -152,7 +168,9 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
         if (cb) {
           cb = once(cb);
           args[args.length - 1] = (err: Error, str: string) => {
-            args[0] = path.resolve(args[0]);
+            const pathString = stringifyPath(args[0]);
+
+            args[0] = path.resolve(pathString);
             if (str) str = path.resolve(path.dirname(args[0]), str);
 
             if (err) return cb(err);
@@ -173,13 +191,14 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
   // tslint:disable-next-line:no-any
   fs.lstatSync = (...args: any[]) => {
     const stats = origLstatSync(...args);
-    const linkPath = path.resolve(args[0]);
+    const pathString = stringifyPath(args[0]);
+    const linkPath = path.resolve(pathString);
     if (!stats.isSymbolicLink()) {
       return stats;
     }
     let linkTarget: string;
     try {
-      linkTarget = path.resolve(path.dirname(args[0]), origReadlinkSync(linkPath));
+      linkTarget = path.resolve(path.dirname(pathString), origReadlinkSync(linkPath));
     } catch (e) {
       if (e.code === 'ENOENT') {
         return stats;
@@ -204,8 +223,9 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
   // tslint:disable-next-line:no-any
   fs.realpathSync = (...args: any[]) => {
     const str = origRealpathSync(...args);
-    if (isEscape(str, args[0])) {
-      return path.resolve(args[0]);
+    const pathString = stringifyPath(args[0]);
+    if (isEscape(str, pathString)) {
+      return path.resolve(pathString);
     }
     return str;
   };
@@ -213,15 +233,18 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
   // tslint:disable-next-line:no-any
   fs.realpathSync.native = (...args: any[]) => {
     const str = origRealpathSyncNative(...args);
-    if (isEscape(str, args[0])) {
-      return path.resolve(args[0]);
+    const pathString = stringifyPath(args[0]);
+    if (isEscape(str, pathString)) {
+      return path.resolve(pathString);
     }
     return str;
   };
 
   // tslint:disable-next-line:no-any
   fs.readlinkSync = (...args: any[]) => {
-    args[0] = path.resolve(args[0]);
+    const pathString = stringifyPath(args[0]);
+
+    args[0] = path.resolve(pathString);
 
     const str = path.resolve(path.dirname(args[0]), origReadlinkSync(...args));
     if (isEscape(str, args[0]) || str === args[0]) {
@@ -235,7 +258,8 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
 
   // tslint:disable-next-line:no-any
   fs.readdir = (...args: any[]) => {
-    const p = path.resolve(args[0]);
+    const pathString = stringifyPath(args[0]);
+    const p = path.resolve(pathString);
 
     let cb = args[args.length - 1];
     if (typeof cb !== 'function') {
@@ -267,7 +291,8 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
   // tslint:disable-next-line:no-any
   fs.readdirSync = (...args: any[]) => {
     const res = origReaddirSync(...args);
-    const p = path.resolve(args[0].toString());
+    const pathString = stringifyPath(args[0]);
+    const p = path.resolve(pathString);
     // tslint:disable-next-line:no-any
     res.forEach((v: Dirent|any) => {
       handleDirentSync(p, v);
