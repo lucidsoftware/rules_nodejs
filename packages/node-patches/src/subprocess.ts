@@ -1,42 +1,38 @@
 // this does not actually patch child_process
 // but adds support to ensure the registered loader is included in all nested executions of nodejs.
-const crypto = require('crypto');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 export const patcher = (requireScriptName: string, nodeDir?: string) => {
   requireScriptName = path.resolve(requireScriptName);
-  if (!nodeDir) {
+  if (nodeDir) {
+    try {
+      fs.mkdirSync(nodeDir, {recursive: true});
+    } catch (e) {
+      // with node versions that don't have recursive mkdir this may throw an error.
+      if (e.code !== 'EEXIST') {
+        throw e;
+      }
+    }
+  } else {
     // Write to a temporary directory so we don't write to runfiles, which are often read-only in a
     // remote execution environment
-    const hash = crypto.createHash('sha1').update(requireScriptName).digest('hex').substring(0, 8);
+    nodeDir = fs.mkdtempSync("_node_bin_");
 
-    nodeDir = path.join(os.tmpdir(), `_node_bin_${hash}`);
-
-    function cleanUpTemporaryDirectory() {
+    function exitHandler() {
       fs.rmSync(nodeDir, {
         recursive: true
       });
     }
 
-    process.on('exit', cleanUpTemporaryDirectory);
-    process.on('SIGINT', cleanUpTemporaryDirectory);
-    process.on('SIGTERM', cleanUpTemporaryDirectory);
-    process.on('SIGUSR1', cleanUpTemporaryDirectory);
-    process.on('SIGUSR2', cleanUpTemporaryDirectory);
-    process.on('uncaughtException', cleanUpTemporaryDirectory);
+    process.on('exit', exitHandler);
+
+    // Calling `process.exit` will cause the `exit` event to be fired
+    process.on('SIGINT', () => process.exit(130));
+    process.on('SIGTERM', () => process.exit(143));
   }
   const file = path.basename(requireScriptName);
 
-  try {
-    fs.mkdirSync(nodeDir, {recursive: true});
-  } catch (e) {
-    // with node versions that don't have recursive mkdir this may throw an error.
-    if (e.code !== 'EEXIST') {
-      throw e;
-    }
-  }
   if (process.platform == 'win32') {
     const nodeEntry = path.join(nodeDir, 'node.bat');
     if (!fs.existsSync(nodeEntry)) {
