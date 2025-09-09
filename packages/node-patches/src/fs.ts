@@ -104,7 +104,7 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
 
           str = path.resolve(path.dirname(pathString), str);
 
-          if (isEscape(str, args[0])) {
+          if (isEscape(str, pathString)) {
             // if it's an out link we have to return the original stat.
             return origStat(args[0], (err: Error&{code: string}, plainStat: Stats) => {
               if (err && err.code === 'ENOENT') {
@@ -175,7 +175,7 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
 
             if (err) return cb(err);
 
-            if (isEscape(str, args[0])) {
+            if (isEscape(str, pathString)) {
               const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
               // tslint:disable-next-line:no-any
               (e as any).code = 'EINVAL';
@@ -247,7 +247,7 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     args[0] = path.resolve(pathString);
 
     const str = path.resolve(path.dirname(args[0]), origReadlinkSync(...args));
-    if (isEscape(str, args[0]) || str === args[0]) {
+    if (isEscape(str, pathString) || str === args[0]) {
       const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
       // tslint:disable-next-line:no-any
       (e as any).code = 'EINVAL';

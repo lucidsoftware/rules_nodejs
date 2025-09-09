@@ -126,7 +126,7 @@ const patcher = (fs = fs__default['default'], roots) => {
                     }
                     const pathString = stringifyPath(args[0]);
                     str = path__default['default'].resolve(path__default['default'].dirname(pathString), str);
-                    if (isEscape(str, args[0])) {
+                    if (isEscape(str, pathString)) {
                         // if it's an out link we have to return the original stat.
                         return origStat(args[0], (err, plainStat) => {
                             if (err && err.code === 'ENOENT') {
@@ -193,7 +193,7 @@ const patcher = (fs = fs__default['default'], roots) => {
                     str = path__default['default'].resolve(path__default['default'].dirname(args[0]), str);
                 if (err)
                     return cb(err);
-                if (isEscape(str, args[0])) {
+                if (isEscape(str, pathString)) {
                     const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
                     // tslint:disable-next-line:no-any
                     e.code = 'EINVAL';
@@ -260,7 +260,7 @@ const patcher = (fs = fs__default['default'], roots) => {
         const pathString = stringifyPath(args[0]);
         args[0] = path__default['default'].resolve(pathString);
         const str = path__default['default'].resolve(path__default['default'].dirname(args[0]), origReadlinkSync(...args));
-        if (isEscape(str, args[0]) || str === args[0]) {
+        if (isEscape(str, pathString) || str === args[0]) {
             const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
             // tslint:disable-next-line:no-any
             e.code = 'EINVAL';
