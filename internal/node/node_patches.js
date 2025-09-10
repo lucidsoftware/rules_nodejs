@@ -95,7 +95,6 @@ const patcher = (fs = fs__default['default'], roots) => {
     const origReaddir = fs.readdir.bind(fs);
     const origReaddirSync = fs.readdirSync.bind(fs);
     const { isEscape } = exports.escapeFunction(roots);
-    // tslint:disable-next-line:no-any
     fs.lstat = (...args) => {
         let cb = args.length > 1 ? args[args.length - 1] : undefined;
         // preserve error when calling function without required callback.
@@ -126,7 +125,7 @@ const patcher = (fs = fs__default['default'], roots) => {
                     }
                     const pathString = stringifyPath(args[0]);
                     str = path__default['default'].resolve(path__default['default'].dirname(pathString), str);
-                    if (isEscape(str, args[0])) {
+                    if (isEscape(str, pathString)) {
                         // if it's an out link we have to return the original stat.
                         return origStat(args[0], (err, plainStat) => {
                             if (err && err.code === 'ENOENT') {
@@ -143,7 +142,6 @@ const patcher = (fs = fs__default['default'], roots) => {
         }
         origLstat(...args);
     };
-    // tslint:disable-next-line:no-any
     fs.realpath = (...args) => {
         let cb = args.length > 1 ? args[args.length - 1] : undefined;
         if (cb) {
@@ -162,26 +160,24 @@ const patcher = (fs = fs__default['default'], roots) => {
         }
         origRealpath(...args);
     };
-    fs.realpath.native =
-        (...args) => {
-            let cb = args.length > 1 ? args[args.length - 1] : undefined;
-            if (cb) {
-                cb = once(cb);
-                args[args.length - 1] = (err, str) => {
-                    if (err)
-                        return cb(err);
-                    const pathString = stringifyPath(args[0]);
-                    if (isEscape(str, pathString)) {
-                        cb(null, path__default['default'].resolve(pathString));
-                    }
-                    else {
-                        cb(null, str);
-                    }
-                };
-            }
-            origRealpathNative(...args);
-        };
-    // tslint:disable-next-line:no-any
+    fs.realpath.native = (...args) => {
+        let cb = args.length > 1 ? args[args.length - 1] : undefined;
+        if (cb) {
+            cb = once(cb);
+            args[args.length - 1] = (err, str) => {
+                if (err)
+                    return cb(err);
+                const pathString = stringifyPath(args[0]);
+                if (isEscape(str, pathString)) {
+                    cb(null, path__default['default'].resolve(pathString));
+                }
+                else {
+                    cb(null, str);
+                }
+            };
+        }
+        origRealpathNative(...args);
+    };
     fs.readlink = (...args) => {
         let cb = args.length > 1 ? args[args.length - 1] : undefined;
         if (cb) {
@@ -193,7 +189,7 @@ const patcher = (fs = fs__default['default'], roots) => {
                     str = path__default['default'].resolve(path__default['default'].dirname(args[0]), str);
                 if (err)
                     return cb(err);
-                if (isEscape(str, args[0])) {
+                if (isEscape(str, pathString)) {
                     const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
                     // tslint:disable-next-line:no-any
                     e.code = 'EINVAL';
@@ -205,7 +201,6 @@ const patcher = (fs = fs__default['default'], roots) => {
         }
         origReadlink(...args);
     };
-    // tslint:disable-next-line:no-any
     fs.lstatSync = (...args) => {
         const stats = origLstatSync(...args);
         const pathString = stringifyPath(args[0]);
@@ -237,7 +232,6 @@ const patcher = (fs = fs__default['default'], roots) => {
         }
         return stats;
     };
-    // tslint:disable-next-line:no-any
     fs.realpathSync = (...args) => {
         const str = origRealpathSync(...args);
         const pathString = stringifyPath(args[0]);
@@ -246,7 +240,6 @@ const patcher = (fs = fs__default['default'], roots) => {
         }
         return str;
     };
-    // tslint:disable-next-line:no-any
     fs.realpathSync.native = (...args) => {
         const str = origRealpathSyncNative(...args);
         const pathString = stringifyPath(args[0]);
@@ -255,12 +248,11 @@ const patcher = (fs = fs__default['default'], roots) => {
         }
         return str;
     };
-    // tslint:disable-next-line:no-any
     fs.readlinkSync = (...args) => {
         const pathString = stringifyPath(args[0]);
         args[0] = path__default['default'].resolve(pathString);
         const str = path__default['default'].resolve(path__default['default'].dirname(args[0]), origReadlinkSync(...args));
-        if (isEscape(str, args[0]) || str === args[0]) {
+        if (isEscape(str, pathString) || str === args[0]) {
             const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
             // tslint:disable-next-line:no-any
             e.code = 'EINVAL';
@@ -268,7 +260,6 @@ const patcher = (fs = fs__default['default'], roots) => {
         }
         return str;
     };
-    // tslint:disable-next-line:no-any
     fs.readdir = (...args) => {
         const pathString = stringifyPath(args[0]);
         const p = path__default['default'].resolve(pathString);
@@ -298,7 +289,6 @@ const patcher = (fs = fs__default['default'], roots) => {
         };
         origReaddir(...args);
     };
-    // tslint:disable-next-line:no-any
     fs.readdirSync = (...args) => {
         const res = origReaddirSync(...args);
         const pathString = stringifyPath(args[0]);
@@ -326,7 +316,6 @@ const patcher = (fs = fs__default['default'], roots) => {
     }
     if (fs.opendir) {
         const origOpendir = fs.opendir.bind(fs);
-        // tslint:disable-next-line:no-any
         fs.opendir = (...args) => {
             let cb = args[args.length - 1];
             // if this is not a function opendir should throw an error.

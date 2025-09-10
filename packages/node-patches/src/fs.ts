@@ -24,6 +24,9 @@ import * as util from 'util';
 type Dir = any;
 type Dirent = any;
 
+type Callback = ((...args: unknown[]) => unknown) | null | undefined;
+type FsArgs = [string | URL | Buffer | undefined | null, ...unknown[], Callback];
+
 function stringifyPath(path: unknown): string {
   if (path instanceof URL) {
     return path.toString().replace('file://', '');
@@ -66,14 +69,13 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
 
   const logged: {[k: string]: boolean} = {};
 
-  // tslint:disable-next-line:no-any
-  fs.lstat = (...args: any[]) => {
+  fs.lstat = (...args: FsArgs) => {
     const ekey = new Error('').stack || '';
     if (!logged[ekey]) {
       logged[ekey] = true;
     }
 
-    let cb = args.length > 1 ? args[args.length - 1] : undefined;
+    let cb = args.length > 1 ? args[args.length - 1] as Callback : undefined;
     // preserve error when calling function without required callback.
     if (cb) {
       cb = once(cb);
@@ -104,7 +106,7 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
 
           str = path.resolve(path.dirname(pathString), str);
 
-          if (isEscape(str, args[0])) {
+          if (isEscape(str, pathString)) {
             // if it's an out link we have to return the original stat.
             return origStat(args[0], (err: Error&{code: string}, plainStat: Stats) => {
               if (err && err.code === 'ENOENT') {
@@ -122,9 +124,8 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     origLstat(...args);
   };
 
-  // tslint:disable-next-line:no-any
-  fs.realpath = (...args: any[]) => {
-    let cb = args.length > 1 ? args[args.length - 1] : undefined;
+  fs.realpath = (...args: FsArgs) => {
+    let cb = args.length > 1 ? args[args.length - 1] as Callback : undefined;
     if (cb) {
       cb = once(cb);
       args[args.length - 1] = (err: Error, str: string) => {
@@ -142,54 +143,51 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     origRealpath(...args);
   };
 
-  fs.realpath.native =
-      (...args) => {
-        let cb = args.length > 1 ? args[args.length - 1] : undefined;
-        if (cb) {
-          cb = once(cb);
-          args[args.length - 1] = (err: Error, str: string) => {
-            if (err) return cb(err);
+  fs.realpath.native = (...args: FsArgs) => {
+    let cb = args.length > 1 ? args[args.length - 1] as Callback : undefined;
+    if (cb) {
+      cb = once(cb);
+      args[args.length - 1] = (err: Error, str: string) => {
+        if (err) return cb(err);
 
-            const pathString = stringifyPath(args[0]);
+        const pathString = stringifyPath(args[0]);
 
-            if (isEscape(str, pathString)) {
-              cb(null, path.resolve(pathString));
-            } else {
-              cb(null, str);
-            }
-          };
+        if (isEscape(str, pathString)) {
+          cb(null, path.resolve(pathString));
+        } else {
+          cb(null, str);
         }
-        origRealpathNative(...args)
-      }
-
-                   // tslint:disable-next-line:no-any
-                   fs.readlink = (...args: any[]) => {
-        let cb = args.length > 1 ? args[args.length - 1] : undefined;
-        if (cb) {
-          cb = once(cb);
-          args[args.length - 1] = (err: Error, str: string) => {
-            const pathString = stringifyPath(args[0]);
-
-            args[0] = path.resolve(pathString);
-            if (str) str = path.resolve(path.dirname(args[0]), str);
-
-            if (err) return cb(err);
-
-            if (isEscape(str, args[0])) {
-              const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
-              // tslint:disable-next-line:no-any
-              (e as any).code = 'EINVAL';
-              // if its not supposed to be a link we have to trigger an EINVAL error.
-              return cb(e);
-            }
-            cb(null, str);
-          };
-        }
-        origReadlink(...args);
       };
+    }
+    origRealpathNative(...args)
+  }
 
-  // tslint:disable-next-line:no-any
-  fs.lstatSync = (...args: any[]) => {
+  fs.readlink = (...args: FsArgs) => {
+    let cb = args.length > 1 ? args[args.length - 1] as Callback : undefined;
+    if (cb) {
+      cb = once(cb);
+      args[args.length - 1] = (err: Error, str: string) => {
+        const pathString = stringifyPath(args[0]);
+
+        args[0] = path.resolve(pathString);
+        if (str) str = path.resolve(path.dirname(args[0]), str);
+
+        if (err) return cb(err);
+
+        if (isEscape(str, pathString)) {
+          const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
+          // tslint:disable-next-line:no-any
+          (e as any).code = 'EINVAL';
+          // if its not supposed to be a link we have to trigger an EINVAL error.
+          return cb(e);
+        }
+        cb(null, str);
+      };
+    }
+    origReadlink(...args);
+  };
+
+  fs.lstatSync = (...args: FsArgs) => {
     const stats = origLstatSync(...args);
     const pathString = stringifyPath(args[0]);
     const linkPath = path.resolve(pathString);
@@ -220,8 +218,7 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     return stats;
   };
 
-  // tslint:disable-next-line:no-any
-  fs.realpathSync = (...args: any[]) => {
+  fs.realpathSync = (...args: FsArgs) => {
     const str = origRealpathSync(...args);
     const pathString = stringifyPath(args[0]);
     if (isEscape(str, pathString)) {
@@ -230,8 +227,7 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     return str;
   };
 
-  // tslint:disable-next-line:no-any
-  fs.realpathSync.native = (...args: any[]) => {
+  fs.realpathSync.native = (...args: FsArgs) => {
     const str = origRealpathSyncNative(...args);
     const pathString = stringifyPath(args[0]);
     if (isEscape(str, pathString)) {
@@ -240,14 +236,13 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     return str;
   };
 
-  // tslint:disable-next-line:no-any
-  fs.readlinkSync = (...args: any[]) => {
+  fs.readlinkSync = (...args: FsArgs) => {
     const pathString = stringifyPath(args[0]);
 
     args[0] = path.resolve(pathString);
 
     const str = path.resolve(path.dirname(args[0]), origReadlinkSync(...args));
-    if (isEscape(str, args[0]) || str === args[0]) {
+    if (isEscape(str, pathString) || str === args[0]) {
       const e = new Error('EINVAL: invalid argument, readlink \'' + args[0] + '\'');
       // tslint:disable-next-line:no-any
       (e as any).code = 'EINVAL';
@@ -256,12 +251,11 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     return str;
   };
 
-  // tslint:disable-next-line:no-any
-  fs.readdir = (...args: any[]) => {
+  fs.readdir = (...args: FsArgs) => {
     const pathString = stringifyPath(args[0]);
     const p = path.resolve(pathString);
 
-    let cb = args[args.length - 1];
+    let cb = args[args.length - 1] as Callback;
     if (typeof cb !== 'function') {
       // this will likely throw callback required error.
       return origReaddir(...args);
@@ -288,8 +282,7 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     origReaddir(...args);
   };
 
-  // tslint:disable-next-line:no-any
-  fs.readdirSync = (...args: any[]) => {
+  fs.readdirSync = (...args: FsArgs) => {
     const res = origReaddirSync(...args);
     const pathString = stringifyPath(args[0]);
     const p = path.resolve(pathString);
@@ -318,9 +311,8 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
 
   if (fs.opendir) {
     const origOpendir = fs.opendir.bind(fs);
-    // tslint:disable-next-line:no-any
-    fs.opendir = (...args: any[]) => {
-      let cb = args[args.length - 1];
+    fs.opendir = (...args: FsArgs) => {
+      let cb = args[args.length - 1] as Callback;
       // if this is not a function opendir should throw an error.
       // we call it so we don't have to throw a mock
       if (typeof cb === 'function') {
@@ -355,9 +347,9 @@ export const patcher = (fs: any = _fs, roots: string[]) => {
     };
 
     // tslint:disable-next-line:no-any
-    (dir.read as any) = async (...args: any[]) => {
+    (dir.read as any) = async (...args: FsArgs) => {
       if (typeof args[args.length - 1] === 'function') {
-        const cb = args[args.length - 1];
+        const cb = args[args.length - 1] as Callback;
         args[args.length - 1] = async (err: Error, entry: Dirent) => {
           cb(err, entry ? await handleDirent(p, entry) : null);
         };
