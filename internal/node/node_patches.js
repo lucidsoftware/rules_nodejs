@@ -5,6 +5,7 @@ var path = require('path');
 var url_1 = require('url');
 var util = require('util');
 var fs$1 = require('fs');
+var os = require('os');
 
 function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
@@ -12,6 +13,7 @@ var path__default = /*#__PURE__*/_interopDefaultLegacy(path);
 var url_1__default = /*#__PURE__*/_interopDefaultLegacy(url_1);
 var util__default = /*#__PURE__*/_interopDefaultLegacy(util);
 var fs__default = /*#__PURE__*/_interopDefaultLegacy(fs$1);
+var os__default = /*#__PURE__*/_interopDefaultLegacy(os);
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -558,6 +560,7 @@ exports.patcher = void 0;
 // but adds support to ensure the registered loader is included in all nested executions of nodejs.
 
 
+
 const patcher = (requireScriptName, nodeDir) => {
     requireScriptName = path__default['default'].resolve(requireScriptName);
     if (nodeDir) {
@@ -574,7 +577,7 @@ const patcher = (requireScriptName, nodeDir) => {
     else {
         // Write to a temporary directory so we don't write to runfiles, which are often read-only in a
         // remote execution environment
-        nodeDir = fs__default['default'].mkdtempSync("_node_bin_");
+        nodeDir = fs__default['default'].mkdtempSync(`${os__default['default'].tmpdir()}${path__default['default'].sep}_node_bin_`);
         function exitHandler() {
             fs__default['default'].rmSync(nodeDir, {
                 recursive: true
