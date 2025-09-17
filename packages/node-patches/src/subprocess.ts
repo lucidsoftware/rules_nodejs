@@ -1,6 +1,7 @@
 // this does not actually patch child_process
 // but adds support to ensure the registered loader is included in all nested executions of nodejs.
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 export const patcher = (requireScriptName: string, nodeDir?: string) => {
@@ -17,7 +18,7 @@ export const patcher = (requireScriptName: string, nodeDir?: string) => {
   } else {
     // Write to a temporary directory so we don't write to runfiles, which are often read-only in a
     // remote execution environment
-    nodeDir = fs.mkdtempSync("_node_bin_");
+    nodeDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}_node_bin_`);
 
     function exitHandler() {
       fs.rmSync(nodeDir, {
